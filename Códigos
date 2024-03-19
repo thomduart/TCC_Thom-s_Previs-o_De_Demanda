@@ -1,0 +1,172 @@
+install.packages('forecast') # tempo de instalação: ~5min
+#install.packages('smooth') # tempo de instalação: ~4min
+install.packages('seastests') # tempo de instalação: ~1min
+#library('smooth')
+library('forecast')
+library('ggplot2')
+
+# Dados - Arroz  - 48 meses
+yArroz <- c(201899, 191130, 208950, 210690, 219630, 190740, 273570, 226620, 183030, 210450, 230345, 240030,
+            181620, 185100, 350880, 478500, 243300, 243630, 178020, 193330, 165600, 48210,  104100, 69300,
+            69600,  119400, 138300, 157560, 159540, 230550, 126900, 133800, 63300,  140100, 184170, 162090,
+            221520, 273870, 333990, 253290, 183300, 223980, 215760, 211800, 199200, 188760, 176580, 208860)
+yArroz = yArroz/1000 # producao em toneladas
+
+# Dados - Feijão  - 48 meses
+yFeijao <- c(406140, 241050, 310110, 424710, 409236, 425790, 498720, 461370, 428940, 451370, 432140, 483450,
+             392450, 326100, 573590, 531230, 575980, 412440, 345110, 547810, 393310, 386260, 345320, 456150,
+             339910, 360910, 422530, 434000, 498940, 475080, 477310, 453490, 347500, 347350, 418120, 526978,
+             405370, 416920, 435060, 443030, 418230, 412780, 458160, 477350, 449790, 447650, 461750, 419650)
+yFeijao = yFeijao/1000 # Produção em toneladas
+
+#print( cat('Arroz',length(yArroz), '\t'  ) )
+#print( cat('Feijao',length(yFeijao), '\t'  ) )
+
+titulo='Arroz'
+y = yArroz
+meses = 1:length(y)
+
+options(repr.plot.width = 18, repr.plot.height = 6) #https://blog.revolutionanalytics.com/2015/09/resizing-plots-in-the-r-kernel-for-jupyter-notebooks.html
+par(mfcol = c(1,2))
+
+#Visualização dos dados completos
+#plot( c(1, 48.0), c(1, 1.3*max(dados) ), type='n', xlab=' ', ylab=')
+plot(meses, y, type='o', lty=2, col='blue', main=' ', ann=FALSE, axes = FALSE)
+
+mtext(side=1,line=2.5, cex=1.8,"Meses")
+mtext(side=2,line=2.8, cex=1.8,"Produção em toneladas")
+mtext(side=3,line=1.0, cex=1.8,sprintf("Dados completos para a \n série temporal de %s ", titulo))
+axis(1, lwd=2, cex=2,cex.axis=1.8)
+axis(2, lwd=2, cex=2,cex.axis=1.8)
+box(lwd=2)
+
+titulo='Arroz'
+y = yArroz
+meses = 1:length(y)
+
+options(repr.plot.width = 12, repr.plot.height = 6) #https://blog.revolutionanalytics.com/2015/09/resizing-plots-in-the-r-kernel-for-jupyter-notebooks.html
+par(mfcol = c(1,2))
+
+
+# Detectar outliers usando a função detectar_outliers_MAD
+outliers <- detectar_outliers_MAD(y)
+mesesOutliersMAD = meses[outliers]
+
+# Plotar os pontos de dados e os outliers usando MAD
+#plot( c(1, 48.0), c(1, 1.3*max(dados) ), type='n', xlab=' ', ylab=')
+plot(meses, y, type='o', lty=2, col='blue', main=' ', ann=FALSE, axes = FALSE)
+points(meses[outliers], y[outliers], col="red", pch=16, cex=1.5)
+#points(which(outliers), y[outliers], col="red", pch=16, cex=1.5)
+
+mtext(side=1,line=2.5, cex=1.8,"Meses")
+mtext(side=2,line=2.8, cex=1.8,"Produção em toneladas")
+mtext(side=3,line=1.0, cex=1.8,sprintf("Detecção de outliers com MAD \n série temporal de %s ", titulo))
+axis(1, lwd=2, cex=2,cex.axis=1.8)
+axis(2, lwd=2, cex=2,cex.axis=1.8)
+legend("topright", legend = c("Dados", "Outliers"), col = c("blue", "red"), pch = c(1, 16), cex=1.4, bty='n')
+box(lwd=2)
+
+
+# Detectar outliers usando a função detectar_outliers_IQR
+outliers <- detectar_outliers_IQR(y)
+mesesOutliersIQR = meses[outliers]
+
+# Plotar os pontos de dados e os outliers usando IQR
+plot(meses ,y, type='o', lty=2, col='blue', main=' ', ann=FALSE, axes = FALSE)
+points(meses[outliers], y[outliers], col="red", pch=16, cex=1.5)
+
+mtext(side=1,line=2.5, cex=1.8,"Meses")
+mtext(side=2,line=2.8, cex=1.8,"Produção em toneladas")
+mtext(side=3,line=1.0, cex=1.8,sprintf("Detecção de outliers com IQR \n série temporal de %s ", titulo))
+axis(1, lwd=2, cex=2,cex.axis=1.8)
+axis(2, lwd=2, cex=2,cex.axis=1.8)
+legend("topright", legend = c("Dados", "Outliers"), col = c("blue", "red"), pch = c(1, 16), cex=1.4, bty='n')
+box(lwd=2)
+
+titulo = 'Arroz'
+dados <- yArroz_semOutlier
+
+# Dividir os dados em p% de treinamento e (1-p)% de comparação
+Ntreino <- as.integer( round(0.80 * length(dados)) )
+dadosTreino <- dados[1:Ntreino]
+dadosTeste  <- dados[(Ntreino + 1):length(dados)]
+print(dadosTeste)
+
+# ETS https://stats.stackexchange.com/questions/361069/r-difference-ets-holt-forecast-holtwinters
+modelofit <- ets(dadosTreino, model = "ZZZ")# Ajustar com ETS (ExponenTial Smoothing): "ANN" é uma suavização exponencial simples com erros aditivos.
+# #ETS seleciona automaticamente qual dos possíveis modelos de suavização exponencial melhor se ajusta aos dados.
+#"N"=none, "A"=additive, "M"=multiplicative and "Z"=automatically selected.
+fitArrozETS = modelofit
+#print( modelofit )
+print( summary(modelofit) )
+
+Tfuturo <- 12
+previsao = forecast(modelofit, Tfuturo) # Realizar a previsão
+plot( previsao, cex=2, col='blue', type='o', lty=2, main=' ', ann=FALSE, axes = FALSE)
+points( c( rep(NA, Ntreino), dadosTeste), cex=2, col='black', pch=16)
+
+arrumar_grafico(Ntreino, Tfuturo, dados, titulo, 'ETS')
+
+titulo='Arroz'
+dados <- yArroz_semOutlier  #t <- tArroz_semOutlier
+
+# Dividir os dados em p% de treinamento e (1-p)% de comparação
+Ntreino <- as.integer( round(0.80 * length(dados)) )
+dadosTreino <- dados[1:Ntreino]
+dadosTeste  <- dados[(Ntreino + 1):length(dados)]
+
+# AUTO.ARIMA
+modelofit <- auto.arima(dadosTreino, stepwise=F)# Ajustar o modelo ARIMA usando os dados de treinamento
+fitArrozAutoArima = modelofit
+#print( arimaorder(modelofit) ) # print( summary(modelofit) )
+
+# print( summary(modelofit) )
+# print( arimaorder(modelofit) )
+# print( accuracy(modelofit)  ) # ME
+# print( coef(modelofit) ) # coef(), plot(), summary(), residuals(), fitted() and simulate()
+# summary(modelofit)  # OU summary(modelofit)[[ss]]
+
+Tfuturo <- 12
+previsao = forecast(modelofit, Tfuturo) # Realizar a previsão
+plot( previsao, cex=2, col='blue', type='o', lty=2, main=' ', ann=FALSE, axes = FALSE)
+points( c( rep(NA, Ntreino), dadosTeste), cex=2, col='black', pch=16)
+
+# print( accuracy(modelofit)[1]) # ME: Mean Error
+# print( accuracy(modelofit)[2]) # RMSE: Root Mean Squared Error
+# print( accuracy(modelofit)[3]) # MAE: Mean Absolute Error
+# print( accuracy(modelofit)[5]) # MAPE: Mean Absolute Percentage Error
+# print( accuracy(modelofit)[6]) # MASE: Mean Absolute Scaled Error
+
+print( fitArrozETS )
+# modelo escolhido: A,N,N
+# logo trata-se de uma suavização exponencial simples com erros aditivos
+# ou seja, a seleção automática dentro de ETS não identificou a sazonalidade
+
+# Lembrando que
+# 1a letra indica o tipo de erro (“A”, “M” ou “Z”);
+# 2a letra indica o tipo de tendência ("N","A","M" ou "Z");
+# 3a letra indica o tipo de sazonalidade ("N", "A", "M" ou "Z").
+# Em todos os casos, "N"=nenhum, "A"=aditivo, "M"=multiplicativo e "Z"=selecionado automaticamente.
+
+# Arroz
+# print( accuracy(fitArrozETS) )
+# print( accuracy(fitArrozAutoArima) )
+
+modelofit = fitArrozETS
+v1 <- c( abs(accuracy(modelofit)[1]) ,accuracy(modelofit)[2],accuracy(modelofit)[3],accuracy(modelofit)[5],accuracy(modelofit)[6])
+modelofit = fitArrozAutoArima
+v2 <- c( abs(accuracy(modelofit)[1]) ,accuracy(modelofit)[2],accuracy(modelofit)[3],accuracy(modelofit)[5],accuracy(modelofit)[6])
+
+resultados <- data.frame(v1,v2)
+colnames(resultados) <- c("ETS","AutoArima")
+rownames(resultados) <- c("|ME|","RMSE","MAE","MAPE","MASE")
+print( resultados ) #
+
+cat('\n')
+print('Melhor modelo de acordo com cada métrica:')
+vbest = c() ; for( i in 1:5 ){ vbest = c(vbest,which.min( abs(resultados[i,]) )) } # USEI em MÓDULO
+print( vbest )
+
+if( sum(vbest==1)>sum(vbest==2) ) print( 'A seleção automática com o ETS foi superior ao Auto Arima na escolha do melhor modelo ' )
+if( sum(vbest==1)<sum(vbest==2) ) print( 'A seleção automática com o Auto Arima foi superior ao ETS na escolha do melhor modelo ' )
+
